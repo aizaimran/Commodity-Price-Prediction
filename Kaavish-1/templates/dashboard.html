@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/min/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0"></script>
+
     <style>
         body {
             font-family: 'Open Sans', sans-serif;
@@ -86,10 +87,55 @@
             border-radius: 15px;
             padding: 20px;
         }
+
+        /* Hide the translator UI, but keep minimal code to reapply chosen language */
+        #hidden_translate_container {
+            display: none; /* No visible dropdown */
+        }
     </style>
+
+    <!-- 1) Minimal Google Translate Setup (Hidden) -->
+    <script>
+      // Called automatically by Google Translate script
+      function googleTranslateElementInit() {
+        new google.translate.TranslateElement(
+          {
+            pageLanguage: 'en',
+            includedLanguages: 'en,ur,pa,ps,sd,fa,ar,hi,mr,gu,bn,ta,te,kn,ml,si,th,id,zh-CN,fr',
+            layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+          },
+          'hidden_translate_container'
+        );
+      }
+
+      // Reapply the user's saved language from localStorage
+      function reapplySavedLanguage() {
+        const savedLang = localStorage.getItem('googleTranslateLang');
+        if (savedLang) {
+          const combo = document.querySelector('.goog-te-combo');
+          if (combo) {
+            combo.value = savedLang;
+            combo.dispatchEvent(new Event('change'));
+          }
+        }
+      }
+
+      // Wait for DOM load, then try to reapply
+      document.addEventListener('DOMContentLoaded', () => {
+        // Small delay so Google can inject .goog-te-combo
+        setTimeout(reapplySavedLanguage, 500);
+      });
+    </script>
+
+    <!-- 2) Load Google Translate script (no visible dropdown) -->
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
+    </script>
 </head>
 <body>
     {% include 'navbar.html' %}
+
+    <!-- Hidden container for the translator -->
+    <div id="hidden_translate_container"></div>
 
     <div class="dashboard-container">
         <h1 class="text-center">Dashboard</h1>
@@ -160,7 +206,7 @@
             const regionBalochistanContainer = document.getElementById('regionBalochistanContainer');
             const regionKPKContainer = document.getElementById('regionKPKContainer');
 
-            // Show/Hide "By Product" and regions based on selected crop
+            // Show/Hide "By Product" and certain regions based on selected crop
             if (crop === 'Cotton') {
                 byProductContainer.style.display = 'block';
                 regionBalochistanContainer.style.display = 'block';
@@ -178,7 +224,7 @@
         document.getElementById('showGraph').addEventListener('click', function() {
             const chartContainer = document.getElementById('chartContainer');
             const crop = document.getElementById('crop').value;
-            const byProduct = document.getElementById('byProduct').value; // Get By Product value
+            const byProduct = document.getElementById('byProduct').value; // By Product value
 
             const regions = [];
             if (document.getElementById('regionPunjab').checked) regions.push('Punjab');
@@ -197,7 +243,7 @@
                     chartContainer.style.display = 'block';
                     const ctx = document.getElementById('sugarChart').getContext('2d');
 
-                    // Destroy existing chart
+                    // Destroy existing chart if it exists
                     if (typeof window.sugarChart !== 'undefined' && window.sugarChart instanceof Chart) {
                         window.sugarChart.destroy();
                     }
@@ -209,20 +255,21 @@
 
                     const datasets = [];
                     data.forEach(regionData => {
+                        // Map actual prices
                         const actualPricesMapped = allDates.map(date =>
                             regionData.dates_actual.includes(date)
                                 ? regionData.actual_prices[regionData.dates_actual.indexOf(date)]
                                 : null
                         );
-
+                        // Map predicted prices
                         const predictedPricesMapped = allDates.map(date =>
                             regionData.dates_predicted.includes(date)
                                 ? regionData.predicted_prices[regionData.dates_predicted.indexOf(date)]
                                 : null
                         );
 
-                         // Actual prices dataset
-                         datasets.push({
+                        // Actual prices dataset
+                        datasets.push({
                             label: `${regionData.region} Actual Prices`,
                             data: actualPricesMapped,
                             borderColor: regionData.color_actual.replace(/rgba\((\d+), (\d+), (\d+), [^\)]+\)/, 'rgba($1, $2, $3, 1)'),
@@ -230,7 +277,7 @@
                             tension: 0.1,
                             pointRadius: 0,
                             pointHoverRadius: 0,
-                            borderWidth: 3, // Thicker line for actual prices
+                            borderWidth: 3, // Thicker line
                         });
 
                         // Predicted prices dataset
@@ -242,10 +289,10 @@
                             tension: 0.1,
                             pointRadius: 0,
                             pointHoverRadius: 0,
-                            borderWidth: 1.5, // Thinner line for predicted prices
+                            borderWidth: 1.5, // Thinner line
                         });
 
-                        // Prediction range dataset (Grey for all predictions)
+                        // Prediction range
                         datasets.push({
                             label: `Prediction Range`,
                             data: predictedPricesMapped,
@@ -254,8 +301,6 @@
                             fill: true,
                             tension: 0.1,
                         });
-
-
                     });
 
                     window.sugarChart = new Chart(ctx, {
